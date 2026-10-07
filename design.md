@@ -98,7 +98,17 @@ flowchart LR
 | Back end | Node.js (TypeScript) with Fastify or NestJS | Shared types with client |
 | Database | PostgreSQL | Relational, JSONB support for dynamic fields |
 | Auth | Email/password + JWT, optional SSO later | Role-based access |
-| Hosting | Azure (App Service/Container Apps, Azure Database for PostgreSQL) | To be confirmed |
+| Hosting | Docker containers on a self-hosted Linux VPS, managed with Docker Compose | Self-managed deployment with persistent storage and no cloud-provider dependency |
+
+### 5.1 VPS deployment
+
+- Run the back end API in an application container. Serve the built web client through a reverse proxy container (Caddy or Nginx), which routes API requests to the back end and terminates HTTPS with automated certificate renewal. iOS and Android apps connect to the same public HTTPS API.
+- Run PostgreSQL in a separate container on a private Docker network. Only the reverse proxy exposes public application ports (80/443); the API and database are not exposed directly.
+- Use Docker Compose to define services, private networks, health checks, restart policies, and persistent volumes. Store database data in a persistent volume that survives container replacement.
+- Keep production secrets outside source control and container images; provide them through protected files on the VPS. Restrict administrative access to SSH keys and configure the host firewall.
+- Encrypt database storage and backups using host-level disk encryption and encrypted backup archives. Schedule database backups to storage outside the VPS and periodically verify restoration.
+- Build versioned application images in CI, deploy a selected image version to the VPS, and run versioned database migrations during deployment. Retain the previous image for rollback; database changes require a compatible migration or a tested restore plan.
+- Monitor container health, application logs, disk space, and backup results. The operator is responsible for VPS updates, container updates, certificates, and recovery. The initial deployment uses one VPS, so a host outage interrupts service until recovery.
 
 ## 6. Data Model (high level)
 
@@ -174,13 +184,13 @@ flowchart TD
 ## 11. Testing and Delivery
 
 - Unit tests (client and server), API contract tests, end-to-end tests on web, device tests for iOS and Android.
-- CI/CD pipeline building web, iOS, and Android artifacts; database migrations versioned.
+- CI/CD pipeline building web, iOS, and Android artifacts and versioned container images; database migrations versioned. Deploy the web client and API to the self-hosted VPS using Docker Compose, with deployment health checks and a documented backup/restore procedure.
 - Milestones: (1) foundations and auth, (2) Author mode, (3) Monitoring mode, (4) Kiosk mode, (5) hardening and release.
 
 ## 12. Open Questions for Review
 
 1. Client framework: React Native + Web or Flutter?
-2. Hosting target: Azure, or other?
+2. VPS sizing, domain name, and off-server backup destination?
 3. Is one workflow active at a time, or many concurrently (design assumes many)?
 4. Should the Author be able to define a different kiosk form per workflow? (design assumes yes)
 5. Are multiple organizations/tenants needed?
